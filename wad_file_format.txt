@@ -1,0 +1,14 @@
+#
+# all ints in little endian
+#
+
+0x00000000 [2 bytes] 0x(52 57) ASCII "RW"; Riot WAD?
+0x00000002 [6 bytes] 0x(01 01 0c 00 18 00) first two bytes are probably version numbers
+0x00000008 [4 bytes] {x} uint32 number of files?
+0x0000000c+[x*24 byte] {fh} file header/info?
+fh:
+  [8 bytes] checksum or hash?
+  [4 bytes] uint32 file offset
+  [4 bytes] uint32 file size
+  [4 bytes] uint32 file size uncompressed
+  [4 bytes] uint32 compression type 0=no compression; 1=gzip
