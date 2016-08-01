@@ -2,13 +2,34 @@
 # all ints in little endian
 #
 
-0x00000000 [2 bytes] 0x(52 57) ASCII "RW"; Riot WAD?
-0x00000002 [6 bytes] 0x(01 01 0c 00 18 00) first two bytes are probably version numbers
-0x00000008 [4 bytes] {x} uint32 number of files?
-0x0000000c+[x*24 byte] {fh} file header/info?
+###Version 1
+0x00000000 [2 bytes] 	0x(52 57) ASCII "RW"; Riot WAD?
+0x00000002 [1 byte] 	0x(01) Major version
+0x00000003 [1 byte] 	0x(01) Minor version
+0x00000004 [4 bytes] 	0x(0c 00 18 00) ???
+0x00000008 [4 bytes] {x} uint32 number of files
+0x0000000c+[x*24 byte] {fh} file header/info
 fh:
-  [8 bytes] checksum or hash?
+  [8 bytes] checksum or hash of filename?
   [4 bytes] uint32 file offset
   [4 bytes] uint32 file size
   [4 bytes] uint32 file size uncompressed
   [4 bytes] uint32 compression type 0=no compression; 1=gzip
+
+  
+  
+###Version 2
+0x00000000 [2 bytes] 	0x(52 57) ASCII "RW"; Riot WAD?
+0x00000002 [1 byte] 	0x(02) Major version
+0x00000003 [1 byte] 	0x(00) Minor version
+0x00000004 [92 bytes] 	???
+0x00000060 [4 bytes] 	0x(68 00 20 00)???
+0x00000064 [4 bytes] {x} uint32 number of files
+0x00000068+[x*32 byte] {fh} file header/info
+fh:
+  [8 bytes] checksum or hash of filename?
+  [4 bytes] uint32 file offset
+  [4 bytes] uint32 file size
+  [4 bytes] uint32 file size uncompressed
+  [4 bytes] uint32 compression type 0=no compression; 1=gzip
+  [8 bytes] another hash or checksum?

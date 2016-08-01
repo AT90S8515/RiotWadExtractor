@@ -11,7 +11,9 @@ namespace RiotWadExtractor
     {
         static void Main(string[] args)
         {
-            if (args.Length < 1)
+            try
+            {
+                if (args.Length < 1)
                 throw new ArgumentException(nameof(args));
             string infile = args[0];
             if (!File.Exists(infile))
@@ -19,11 +21,22 @@ namespace RiotWadExtractor
 
             string outdirectory = Path.Combine(Path.GetFileNameWithoutExtension(infile));
             Directory.CreateDirectory(outdirectory);
-            var wadfile = new WadFile(infile);
-            foreach(var entry in wadfile.Entries)
-            {
-                File.WriteAllBytes(Path.Combine(outdirectory, HashToString(entry.Hash)+GetExtensionByHeader(entry.UncompressedData)), entry.UncompressedData);
+                var wadfile = new WadFile(infile);
+                Console.WriteLine($"Wad (Version: {wadfile.MajorVersion}.{wadfile.MinorVersion}) contains {wadfile.Entries.Length} files.");
+                foreach (var entry in wadfile.Entries)
+                {
+                    string filename = HashToString(entry.FilenameHash) + GetExtensionByHeader(entry.UncompressedData);
+                    Console.WriteLine($"Write file {filename}; Size: {entry.FileSize};\tUncompressed size: {entry.FileSizeUncompressed}");
+                    File.WriteAllBytes(Path.Combine(outdirectory, filename), entry.UncompressedData);
+                }
             }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.GetType()+";");
+                Console.WriteLine("\t"+e.Message);
+            }
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadKey();
         }
 
         static StringBuilder sb = new StringBuilder();

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -11,7 +12,10 @@ namespace RiotWadExtractor
     class WadFile
     {
         public string Header { get; set; }
+        public byte MajorVersion { get; set; }
+        public byte MinorVersion { get; set; }
         public byte[] UnknownHeader { get; set; }
+        public byte[] UnknownHeader2 { get; set; }
         public WadFileEntry[] Entries { get; set; }
 
         public WadFile(string filename)
@@ -23,32 +27,69 @@ namespace RiotWadExtractor
             {
                 using (BinaryReader br = new BinaryReader(fs))
                 {
-                    //Read 2 bytes, usually ASCII "RW"
+                    //Read 2 bytes, ASCII "RW"
                     Header = "" + (char)br.ReadByte() + (char)br.ReadByte();
+
+                    if(Header!=WadConstants.WadMagic)
+                        throw new WadDeserializationException($"Unknown header value: {Header}");
+                    MajorVersion = br.ReadByte();
+                    MinorVersion = br.ReadByte();
+                    if(!WadConstants.SupportedVersions.Any(elem=>elem==MajorVersion))
+                        throw new WadDeserializationException($"Unsupported version: {MajorVersion}");
                     //Read 6 bytes, probably version number
-                    byte[] h = new byte[6];
+                    byte[] h = null;
+                    switch (MajorVersion)
+                    {
+                        case 1:
+                        h = new byte[4];
+                            break;
+                        case 2:
+                            h = new byte[92];
+                            break;
+                        default:
+                            throw new WadDeserializationException($"Unsupported version: {MajorVersion}");
+                    }
                     br.Read(h, 0, h.Length);
                     UnknownHeader = h;
+
+                    if (MajorVersion == 2)
+                    {
+                        UnknownHeader2=new byte[4];
+                        br.Read(UnknownHeader2, 0, UnknownHeader2.Length);
+                        if (!new byte[] {0x68, 0x00, 0x20, 0x00}.SequenceEqual(UnknownHeader2))
+                        {
+                            throw new WadDeserializationException($"'Unknown' V2UnknownHeader: {string.Join(", ",UnknownHeader2)}");
+                        }
+                    }
                     //Read 4 bytes, uint32 number fo files
                     Entries = new WadFileEntry[br.ReadUInt32()];
                     for(int i=0;i<Entries.Length;i++)
                     {
-                        //Read 24 bytes per entry
                         var entry = new WadFileEntry();
                         byte[] hash = new byte[8];
                         br.Read(hash, 0, hash.Length);
-                        entry.Hash = hash;
+                        entry.FilenameHash = hash;
                         entry.FileOffset = br.ReadUInt32();
                         entry.FileSize = br.ReadUInt32();
                         entry.FileSizeUncompressed = br.ReadUInt32();
                         entry.CompressionType= (CompressionType)br.ReadUInt32();
+                        if(!Enum.IsDefined(typeof(CompressionType),entry.CompressionType))
+                            throw new WadDeserializationException($"Unknown CompressionType: {entry.CompressionType}");
+                        if (entry.FileSize == 0)
+                            entry.UncompressedData = new byte[0];
+                        if (MajorVersion == 2)
+                        {
+                            hash = new byte[8];
+                            br.Read(hash, 0, hash.Length);
+                            entry.UnknownHashOrChecksum = hash;
+                        }
                         Entries[i] = entry;
                     }
 
                     while(fs.Position!=fs.Length)
                     {
                         long pos = fs.Position;
-                        var entry=Entries.First(elem => elem.FileOffset == pos);
+                        var entry=Entries.First(elem => elem.FileOffset == pos&&elem.FileSize!=0);
                         byte[] data=null;
                         switch(entry.CompressionType)
                         {

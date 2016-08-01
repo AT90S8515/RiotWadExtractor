@@ -8,7 +8,8 @@ namespace RiotWadExtractor
 {
     class WadFileEntry
     {
-        public byte[] Hash { get; set; }
+        public byte[] FilenameHash { get; set; }
+        public byte[] UnknownHashOrChecksum { get; set; }
         public uint FileOffset { get; set; }
         public uint FileSize { get; set; }
         public uint FileSizeUncompressed { get; set; }
