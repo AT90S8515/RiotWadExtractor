@@ -20,6 +20,7 @@ namespace RiotWadExtractor
 
         public WadFile(string filename)
         {
+            Dictionary<long, int> NumberOfAliases=new Dictionary<long, int>();
             if (!File.Exists(filename))
                 throw new FileNotFoundException(filename);
 
@@ -72,7 +73,7 @@ namespace RiotWadExtractor
                         entry.FileOffset = br.ReadUInt32();
                         entry.FileSize = br.ReadUInt32();
                         entry.FileSizeUncompressed = br.ReadUInt32();
-                        entry.CompressionType= (CompressionType)br.ReadUInt32();
+                        entry.CompressionType= (CompressionType)(byte)br.ReadUInt32();
                         if(!Enum.IsDefined(typeof(CompressionType),entry.CompressionType))
                             throw new WadDeserializationException($"Unknown CompressionType: {entry.CompressionType}");
                         if (entry.FileSize == 0)
@@ -84,27 +85,38 @@ namespace RiotWadExtractor
                             entry.UnknownHashOrChecksum = hash;
                         }
                         Entries[i] = entry;
+                        if (NumberOfAliases.ContainsKey(entry.FileOffset))
+                            NumberOfAliases[entry.FileOffset]++;
+                        else
+                            NumberOfAliases[entry.FileOffset]=1;
                     }
 
                     while(fs.Position!=fs.Length)
                     {
                         long pos = fs.Position;
-                        var entry=Entries.First(elem => elem.FileOffset == pos&&elem.FileSize!=0);
-                        byte[] data=null;
-                        switch(entry.CompressionType)
+                        byte[] data = null;
+                        for (int i=0,j=0;i<Entries.Length&&j<NumberOfAliases[pos];i++)
                         {
-                            case CompressionType.None:
-                                data = new byte[entry.FileSize];
-                                br.Read(data, 0, data.Length);
-                                break;
-                            case CompressionType.Gzip:
-                                data = new byte[entry.FileSize];
-                                br.Read(data, 0, data.Length);
-                                data = GzipDecompress(data, entry.FileSizeUncompressed);
-                                break;
-
+                            var entry = Entries[i];
+                            if (entry.FileOffset==pos)
+                            {
+                                if (pos==fs.Position)
+                                {
+                                    data = new byte[entry.FileSize];
+                                    br.Read(data, 0, data.Length);
+                                    switch (entry.CompressionType)
+                                    {
+                                        case CompressionType.None:
+                                            break;
+                                        case CompressionType.Gzip:
+                                            data = GzipDecompress(data, entry.FileSizeUncompressed);
+                                            break;
+                                    }
+                                }
+                                entry.UncompressedData = data;
+                                j++;
+                            }
                         }
-                        entry.UncompressedData = data;
                     }
                 }
             }
